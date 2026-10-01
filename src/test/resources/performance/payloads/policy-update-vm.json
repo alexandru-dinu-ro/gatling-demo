@@ -1,0 +1,52 @@
+{
+  "metadata": {
+    "name": "{{policyName}}",
+    "description": "{{description}}",
+    "policyTags": {{policyTags}},
+    "policyEntitlement": {
+      "targetCategory": "VM",
+      "locationType": "AWS",
+      "policyType": "Recurring"
+    },
+    "timeFrame": { "fromTime": "{{fromTime}}", "toTime": "{{toTime}}" },
+    "status": { "status": "Active" }
+  },
+  "principals": [
+    {
+      "id": "ec513d58-fc64-4988-aef9-123456789012",
+      "name": "tester@cyberark.cloud",
+      "type": "User",
+      "sourceDirectoryName": "CyberArk Cloud Directory",
+      "sourceDirectoryId": "09B9A9B0-6CE8-465F-AB03-123456789012"
+    }
+  ],
+  "conditions": {
+    "accessWindow": {
+      "timeZone": "Asia/Jerusalem",
+      "daysOfTheWeek": [0, 1, 2, 3, 4, 5, 6],
+      "fromHour": 0,
+      "toHour": 0
+    },
+    "maxSessionDuration": 2,
+    "idleTime": 10
+  },
+  "behavior": {
+    "connectAs": {
+      "ssh": { "username": "ec2-user" },
+      "rdp": {
+        "localEphemeralUser": {
+          "assignGroups": ["Administrators"],
+          "enableEphemeralUserReconnect": false
+        }
+      }
+    }
+  },
+  "targets": {
+    "AWS": {
+      "accountIds": [],
+      "vpcIds": [],
+      "regions": [],
+      "tags": [ { "key": "automation_performance_test", "value": ["no_match"] } ]
+    }
+  }
+}

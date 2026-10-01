@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Dev-pc only: mirrors the framework's log4j2.xml. Not copied to the framework. -->
+<Configuration>
+    <Properties>
+        <Property name="loggingPattern"
+                  value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%-5level] [%t] [%C{1}.%M:%L] - %msg%n"/>
+    </Properties>
+
+    <Appenders>
+        <File name="File" fileName="./target/artifacts/log4j2/run_log.log" append="false">
+            <PatternLayout pattern="${loggingPattern}"/>
+        </File>
+        <Console name="Console">
+            <PatternLayout pattern="${loggingPattern}"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <!-- Performance tests: keep libraries quiet, never log secrets -->
+        <Logger name="io.gatling" level="WARN"/>
+        <Logger name="io.netty" level="WARN"/>
+        <Logger name="org.apache.http" level="WARN"/>
+        <Logger name="com.example.tests.api.performance" level="INFO"/>
+
+        <Root level="trace">
+            <AppenderRef ref="File" level="DEBUG"/>
+            <AppenderRef ref="Console" level="DEBUG"/>
+        </Root>
+    </Loggers>
+</Configuration>

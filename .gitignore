@@ -14,3 +14,7 @@ target/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Allure raw results and generated reports
+allure-results/
+allure-report/

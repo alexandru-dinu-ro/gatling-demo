@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>gatling-demo</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+        <!-- TestNG default test suite -->
+        <testSuite>performance-unit.xml</testSuite>
+        <!-- dependency version -->
+        <testng_ver>7.12.0</testng_ver>
+        <log4j-slf4j2-impl_ver>2.26.1</log4j-slf4j2-impl_ver>
+        <log4j-core_ver>2.26.1</log4j-core_ver>
+        <log4j-api_ver>2.26.1</log4j-api_ver>
+        <allure-testng_ver>2.35.5</allure-testng_ver>
+        <jackson-databind_ver>2.22.3</jackson-databind_ver>
+        <httpclient_ver>4.5.14</httpclient_ver>
+        <commons-codec_ver>1.22.1</commons-codec_ver>
+        <gatling-charts-highcharts_ver>3.15.1</gatling-charts-highcharts_ver>
+        <scala-library_ver>3.9.0</scala-library_ver>
+        <!-- plugin version -->
+        <maven-clean-plugin_ver>3.5.0</maven-clean-plugin_ver>
+        <maven-resources-plugin_ver>3.5.0</maven-resources-plugin_ver>
+        <maven-compiler-plugin_ver>3.16.0</maven-compiler-plugin_ver>
+        <maven-surefire-plugin_ver>3.5.6</maven-surefire-plugin_ver>
+        <gatling-maven-plugin_ver>4.21.11</gatling-maven-plugin_ver>
+        <!-- plugin dependency version -->
+        <aspectjweaver_ver>1.9.25.1</aspectjweaver_ver>
+    </properties>
+
+    <dependencies>
+        <!-- Source: https://mvnrepository.com/artifact/io.gatling.highcharts/gatling-charts-highcharts -->
+        <dependency>
+            <groupId>io.gatling.highcharts</groupId>
+            <artifactId>gatling-charts-highcharts</artifactId>
+            <version>${gatling-charts-highcharts_ver}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>ch.qos.logback</groupId>
+                    <artifactId>logback-classic</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/org.scala-lang/scala-library -->
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>${scala-library_ver}</version>
+        </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/org.testng/testng -->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>${testng_ver}</version>
+        </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-slf4j2-impl -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j2-impl</artifactId>
+            <version>${log4j-slf4j2-impl_ver}</version>
+        </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j-core_ver}</version>
+        </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-api -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j-api_ver}</version>
+        </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/io.qameta.allure/allure-testng -->
+        <dependency>
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-testng</artifactId>
+            <version>${allure-testng_ver}</version>
+        </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson-databind_ver}</version>
+        </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/org.apache.httpcomponents/httpclient -->
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>${httpclient_ver}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-codec</groupId>
+                    <artifactId>commons-codec</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/commons-codec/commons-codec -->
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>${commons-codec_ver}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>${maven-clean-plugin_ver}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>${maven-resources-plugin_ver}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin_ver}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin_ver}</version>
+                    <configuration>
+                        <suiteXmlFiles>
+                            <suiteXmlFile>src/test/resources/test_suites/${testSuite}</suiteXmlFile>
+                        </suiteXmlFiles>
+                        <argLine>
+                            --enable-native-access=ALL-UNNAMED
+                            --sun-misc-unsafe-memory-access=allow
+                            -javaagent:"${settings.localRepository}/org/aspectj/aspectjweaver/${aspectjweaver_ver}/aspectjweaver-${aspectjweaver_ver}.jar"
+                        </argLine>
+                    </configuration>
+                    <dependencies>
+                        <!-- Source: https://mvnrepository.com/artifact/org.aspectj/aspectjweaver -->
+                        <dependency>
+                            <groupId>org.aspectj</groupId>
+                            <artifactId>aspectjweaver</artifactId>
+                            <version>${aspectjweaver_ver}</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <!-- Source: https://mvnrepository.com/artifact/io.gatling/gatling-maven-plugin -->
+                    <groupId>io.gatling</groupId>
+                    <artifactId>gatling-maven-plugin</artifactId>
+                    <version>${gatling-maven-plugin_ver}</version>
+                    <configuration>
+                        <runMultipleSimulations>true</runMultipleSimulations>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

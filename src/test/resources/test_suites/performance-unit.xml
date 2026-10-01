@@ -1,0 +1,14 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="performance-unit">
+    <test name="performance-unit-tests">
+        <groups>
+            <run>
+                <!-- Cleanup tests touch the real tenant: run them only by name -->
+                <exclude name="cleanup"/>
+            </run>
+        </groups>
+        <packages>
+            <package name="com.example.tests.api.performance.*"/>
+        </packages>
+    </test>
+</suite>

@@ -1,0 +1,16 @@
+# Local settings and secrets - never commit
+performance-local.properties
+*-local.properties
+.env
+*.env
+
+# Build output, test results and logs
+target/
+*.log
+
+# IDE and OS files
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db

@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.List;
+import java.util.LongSummaryStatistics;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -15,6 +16,7 @@ import java.util.stream.IntStream;
 /**
  * Creates the seed policies for a run at a controlled rate. Stops at the first failure;
  * every policy created so far is in the run's registry, so the caller's teardown removes them.
+ * Logs the real duration of the creates (fastest, average, slowest).
  */
 public final class PolicySeeder {
 
@@ -45,13 +47,15 @@ public final class PolicySeeder {
         if (count <= 0) {
             throw new IllegalArgumentException("count must be greater than 0, was " + count);
         }
+        LongSummaryStatistics createMillis = new LongSummaryStatistics();
         List<Supplier<OwnedPolicy>> tasks = IntStream.range(0, count)
-                .<Supplier<OwnedPolicy>>mapToObj(index -> () -> createOne(run))
+                .<Supplier<OwnedPolicy>>mapToObj(index -> () -> createOne(run, createMillis))
                 .toList();
 
         long startNanos = System.nanoTime();
         PacedExecutor.Outcome<OwnedPolicy> outcome = pacer.run(tasks, true);
         long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+        logTimings(outcome.results().size(), count, elapsedMs, createMillis);
 
         if (!outcome.allSucceeded()) {
             RuntimeException first = outcome.failures().getFirst();
@@ -60,15 +64,30 @@ public final class PolicySeeder {
             throw new IllegalStateException("seeding stopped after " + outcome.results().size() + " of " + count
                     + " policies" + (rateLimited ? " (rate limited, HTTP 429)" : "") + ": " + first.getMessage(), first);
         }
-        LOG.info("Seeded {} policies in {} ms (average {} ms per create)",
-                count, elapsedMs, outcome.results().isEmpty() ? 0 : elapsedMs / outcome.results().size());
         return outcome.results();
     }
 
-    private OwnedPolicy createOne(RunContext run) {
+    private OwnedPolicy createOne(RunContext run, LongSummaryStatistics createMillis) {
         PolicyName name = run.nextName(PolicyKind.SEED);
+        long startNanos = System.nanoTime();
         String id = client.createPolicy(payloads.createBody(name));
+        long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+        synchronized (createMillis) {
+            createMillis.accept(millis);
+        }
         run.registry().created(id, name);
         return new OwnedPolicy(id, name);
+    }
+
+    private static void logTimings(int created, int requested, long elapsedMs, LongSummaryStatistics createMillis) {
+        synchronized (createMillis) {
+            if (createMillis.getCount() == 0) {
+                LOG.info("Seeded 0 of {} policies in {} ms", requested, elapsedMs);
+                return;
+            }
+            LOG.info("Seeded {} of {} policies in {} ms; create took {} ms fastest, {} ms average, {} ms slowest",
+                    created, requested, elapsedMs, createMillis.getMin(),
+                    Math.round(createMillis.getAverage()), createMillis.getMax());
+        }
     }
 }

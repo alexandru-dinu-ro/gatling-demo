@@ -28,6 +28,7 @@ public enum Setting {
     LIST_ITEM_ID_POINTER("listItemIdPointer", Type.STRING, Rule.JSON_POINTER, false),
     LIST_ITEM_NAME_POINTER("listItemNamePointer", Type.STRING, Rule.JSON_POINTER, false),
     ADMIN_LIST_PAGE_SIZE("adminListPageSize", Type.INT, Rule.POSITIVE, false),
+    ADMIN_TIMEOUT_MS("adminTimeoutMs", Type.INT, Rule.POSITIVE, false),
 
     // --- Token ---
     TOKEN_REFRESH_RATIO("tokenRefreshRatio", Type.DOUBLE, Rule.RATIO_EXCLUSIVE, false),

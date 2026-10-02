@@ -9,7 +9,9 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
 /**
  * Creates the pooled, thread-safe Apache HttpClient used outside Gatling
- * (token, seeding, sweep, cleanup). The caller owns the client and must close it.
+ * (token, seeding, sweep, cleanup). Its timeout is {@code adminTimeoutMs}, not the measured
+ * {@code maxResponseTimeMs}: a slow setup request is slow, not failed.
+ * The caller owns the client and must close it.
  */
 public final class HttpClientFactory {
 
@@ -20,7 +22,7 @@ public final class HttpClientFactory {
     }
 
     public static CloseableHttpClient create(PerfConfig config) {
-        int timeoutMs = config.getInt(Setting.MAX_RESPONSE_TIME_MS);
+        int timeoutMs = config.getInt(Setting.ADMIN_TIMEOUT_MS);
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectTimeout(timeoutMs)
                 .setConnectionRequestTimeout(timeoutMs)

@@ -25,6 +25,8 @@ public enum Setting {
     LIST_NEXT_TOKEN_FIELD("listNextTokenField", Type.STRING, Rule.NOT_BLANK, false),
     LIST_NEXT_TOKEN_PARAM("listNextTokenParam", Type.STRING, Rule.NOT_BLANK, false),
     LIST_SEARCH_PARAM("listSearchParam", Type.STRING, Rule.NOT_BLANK, false),
+    LIST_ITEM_ID_POINTER("listItemIdPointer", Type.STRING, Rule.JSON_POINTER, false),
+    LIST_ITEM_NAME_POINTER("listItemNamePointer", Type.STRING, Rule.JSON_POINTER, false),
     ADMIN_LIST_PAGE_SIZE("adminListPageSize", Type.INT, Rule.POSITIVE, false),
 
     // --- Token ---
@@ -146,6 +148,8 @@ public enum Setting {
             double number = ((Number) value).doubleValue();
             return number > 0 && number < 1;
         }, "greater than 0 and less than 1"),
+        JSON_POINTER(value -> value.toString().startsWith("/") && value.toString().length() > 1,
+                "a JSON pointer such as /metadata/name"),
         URL_TEMPLATE(value -> value.toString().startsWith("https://")
                 && value.toString().contains(PerfConfig.SUBDOMAIN_TOKEN),
                 "an https:// URL containing " + PerfConfig.SUBDOMAIN_TOKEN);

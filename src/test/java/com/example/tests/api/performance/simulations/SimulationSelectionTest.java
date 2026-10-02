@@ -11,9 +11,10 @@ public class SimulationSelectionTest {
     private static final Class<?> SIMULATION = SimulationSelectionTest.class;
 
     @Test
-    public void exactClassNameSelects() {
+    public void simpleOrFullNameSelects() {
+        assertTrue(SimulationSelection.isSelected(SIMULATION, SIMULATION.getSimpleName()));
         assertTrue(SimulationSelection.isSelected(SIMULATION, SIMULATION.getName()));
-        assertTrue(SimulationSelection.isSelected(SIMULATION, "  " + SIMULATION.getName() + "  "));
+        assertTrue(SimulationSelection.isSelected(SIMULATION, "  " + SIMULATION.getSimpleName() + "  "));
     }
 
     @DataProvider
@@ -21,10 +22,11 @@ public class SimulationSelectionTest {
         return new Object[][]{
                 {null},
                 {""},
-                {SIMULATION.getSimpleName()},
+                {"SomeOtherSimulation"},
+                {SIMULATION.getSimpleName().toLowerCase()},
+                {SIMULATION.getSimpleName() + "X"},
                 {"com.example.tests.api.performance.simulations"},
                 {"com.example.tests.api.performance.simulations.SomeOtherSimulation"},
-                {SIMULATION.getName() + "X"},
         };
     }
 

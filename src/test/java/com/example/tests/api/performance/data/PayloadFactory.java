@@ -3,8 +3,10 @@ package com.example.tests.api.performance.data;
 import com.example.tests.api.performance.config.PerfConfig;
 import com.example.tests.api.performance.config.Setting;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.io.JsonStringEncoder;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,10 +19,16 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
-/** Fills the policy templates for one run. Thread-safe. */
+/**
+ * Builds policy request bodies from valid-JSON templates for one run.
+ *
+ * <p>Each body is a fresh copy of the template with {@code metadata.name},
+ * {@code metadata.description}, {@code metadata.policyTags} and
+ * {@code metadata.timeFrame.fromTime/toTime} set; everything else is kept as is.
+ * Templates are parsed and checked once, at construction. Thread-safe.
+ */
 public final class PayloadFactory {
 
     static final String TEMPLATE_DIR = "performance/payloads/";
@@ -30,24 +38,37 @@ public final class PayloadFactory {
 
     private static final String CREATE_TEMPLATE = "policy-create-%s.json";
     private static final String UPDATE_TEMPLATE = "policy-update-%s.json";
-    private static final String PLACEHOLDER_START = "{{";
+
+    private static final String METADATA = "metadata";
+    private static final String NAME = "name";
+    private static final String DESCRIPTION = "description";
+    private static final String POLICY_TAGS = "policyTags";
+    private static final String TIME_FRAME = "timeFrame";
+    private static final String FROM_TIME = "fromTime";
+    private static final String TO_TIME = "toTime";
+
     private static final String RUN_TAG_PREFIX = "run_";
     private static final String KIND_TAG_PREFIX = "kind_";
     private static final DateTimeFormatter POLICY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
     private static final LocalTime END_OF_DAY = LocalTime.of(23, 59, 59);
 
-    private final String createTemplate;
-    private final String updateTemplate;
+    private final ObjectNode createTemplate;
+    private final ObjectNode updateTemplate;
     private final ObjectMapper mapper;
     private final String simulationName;
     private final String environment;
     private final Clock clock;
 
-    public PayloadFactory(String createTemplate, String updateTemplate, ObjectMapper mapper,
+    /**
+     * @param createTemplateJson JSON text of the create template
+     * @param updateTemplateJson JSON text of the update template
+     * @throws IllegalStateException if a template is not valid JSON or lacks the fields to fill
+     */
+    public PayloadFactory(String createTemplateJson, String updateTemplateJson, ObjectMapper mapper,
                           String simulationName, String environment, Clock clock) {
-        this.createTemplate = Objects.requireNonNull(createTemplate, "createTemplate");
-        this.updateTemplate = Objects.requireNonNull(updateTemplate, "updateTemplate");
         this.mapper = Objects.requireNonNull(mapper, "mapper");
+        this.createTemplate = parseTemplate(createTemplateJson, "create template");
+        this.updateTemplate = parseTemplate(updateTemplateJson, "update template");
         this.simulationName = Objects.requireNonNull(simulationName, "simulationName");
         this.environment = Objects.requireNonNull(environment, "environment");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -87,24 +108,49 @@ public final class PayloadFactory {
 
     // ------------------------------------------------------------------ internals
 
-    private String fill(String template, PolicyName name, String description) {
+    private String fill(ObjectNode template, PolicyName name, String description) {
         List<String> tags = tags(name);
         checkLimits(description, tags);
 
-        LocalDate runDay = LocalDateTime.ofInstant(name.runId().startedAt(), ZoneOffset.UTC).toLocalDate();
-        Map<String, String> values = Map.of(
-                "{{policyName}}", escape(name.value()),
-                "{{description}}", escape(description),
-                "{{policyTags}}", toJson(tags),
-                "{{fromTime}}", POLICY_TIME.format(runDay.atStartOfDay()),
-                "{{toTime}}", POLICY_TIME.format(runDay.plusDays(1).atTime(END_OF_DAY)));
+        ObjectNode body = template.deepCopy();
+        ObjectNode metadata = (ObjectNode) body.get(METADATA);
+        metadata.put(NAME, name.value());
+        metadata.put(DESCRIPTION, description);
+        ArrayNode tagArray = metadata.putArray(POLICY_TAGS);
+        tags.forEach(tagArray::add);
 
-        String body = template;
-        for (Map.Entry<String, String> entry : values.entrySet()) {
-            body = body.replace(entry.getKey(), entry.getValue());
+        LocalDate runDay = LocalDateTime.ofInstant(name.runId().startedAt(), ZoneOffset.UTC).toLocalDate();
+        ObjectNode timeFrame = (ObjectNode) metadata.get(TIME_FRAME);
+        timeFrame.put(FROM_TIME, POLICY_TIME.format(runDay.atStartOfDay()));
+        timeFrame.put(TO_TIME, POLICY_TIME.format(runDay.plusDays(1).atTime(END_OF_DAY)));
+
+        try {
+            return mapper.writeValueAsString(body);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("could not write policy body as JSON", e);
         }
-        checkResult(body);
-        return body;
+    }
+
+    private ObjectNode parseTemplate(String json, String label) {
+        Objects.requireNonNull(json, label);
+        JsonNode root;
+        try {
+            root = mapper.readTree(json);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(label + " is not valid JSON: " + e.getOriginalMessage(), e);
+        }
+        if (root == null || !root.isObject()) {
+            throw new IllegalStateException(label + " must be a JSON object");
+        }
+        JsonNode metadata = root.get(METADATA);
+        if (metadata == null || !metadata.isObject()) {
+            throw new IllegalStateException(label + " has no \"" + METADATA + "\" object");
+        }
+        JsonNode timeFrame = metadata.get(TIME_FRAME);
+        if (timeFrame == null || !timeFrame.isObject()) {
+            throw new IllegalStateException(label + " has no \"" + METADATA + "." + TIME_FRAME + "\" object");
+        }
+        return (ObjectNode) root;
     }
 
     private static void checkLimits(String description, List<String> tags) {
@@ -123,33 +169,8 @@ public final class PayloadFactory {
                 });
     }
 
-    private void checkResult(String body) {
-        int leftover = body.indexOf(PLACEHOLDER_START);
-        if (leftover >= 0) {
-            int end = Math.min(body.length(), leftover + 40);
-            throw new IllegalStateException("template has an unknown placeholder near: " + body.substring(leftover, end));
-        }
-        try {
-            mapper.readTree(body);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("filled template is not valid JSON: " + e.getOriginalMessage(), e);
-        }
-    }
-
     private static String marker(String prefix) {
         return prefix.replaceAll("_+$", "");
-    }
-
-    private static String escape(String value) {
-        return new String(JsonStringEncoder.getInstance().quoteAsString(value));
-    }
-
-    private String toJson(List<String> values) {
-        try {
-            return mapper.writeValueAsString(values);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("could not write tags as JSON", e);
-        }
     }
 
     static String loadTemplate(String resource) {

@@ -1,14 +1,14 @@
 {
   "metadata": {
-    "name": "{{policyName}}",
-    "description": "{{description}}",
-    "policyTags": {{policyTags}},
+    "name": "Example - Edit Infrastructure VM Policy",
+    "description": "Example description",
+    "policyTags": ["tag1", "tag2"],
     "policyEntitlement": {
       "targetCategory": "VM",
       "locationType": "AWS",
       "policyType": "Recurring"
     },
-    "timeFrame": { "fromTime": "{{fromTime}}", "toTime": "{{toTime}}" },
+    "timeFrame": { "fromTime": "2026-01-01T00:00:00", "toTime": "2026-01-02T23:59:59" },
     "status": { "status": "Active" }
   },
   "principals": [

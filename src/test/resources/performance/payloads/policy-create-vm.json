@@ -24,8 +24,8 @@
     "accessWindow": {
       "timeZone": "Asia/Jerusalem",
       "daysOfTheWeek": [0, 1, 2, 3, 4, 5, 6],
-      "fromHour": "00:00:00",
-      "toHour": "23:59:59"
+      "fromHour": "00:00",
+      "toHour": "23:59"
     },
     "maxSessionDuration": 2,
     "idleTime": 10

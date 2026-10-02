@@ -6,7 +6,7 @@ public final class ApiException extends RuntimeException {
     /** Status used when no HTTP response was received at all. */
     public static final int NO_RESPONSE = -1;
 
-    private static final int MAX_BODY_CHARS = 300;
+    private static final int MAX_BODY_CHARS = 1000;
     private static final int TOO_MANY_REQUESTS = 429;
 
     private final int statusCode;

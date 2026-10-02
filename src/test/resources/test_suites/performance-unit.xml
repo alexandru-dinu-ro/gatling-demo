@@ -3,7 +3,8 @@
     <test name="performance-unit-tests">
         <groups>
             <run>
-                <!-- Cleanup tests touch the real tenant: run them only by name -->
+                <!-- These touch the real tenant: run them only by name (-Dtest=...) -->
+                <exclude name="tenant"/>
                 <exclude name="cleanup"/>
             </run>
         </groups>

@@ -10,7 +10,10 @@ import java.util.Deque;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -18,20 +21,36 @@ import java.util.function.LongSupplier;
 
 /**
  * Live safety net for a run: counts measured requests, failures and HTTP 429s, and
- * decides when the run must stop. The first stop reason found is kept. Thread-safe.
+ * decides when the run must stop. The first stop reason found is kept. Also keeps every
+ * response time with its moment (from the first recorded request) for windowed p95. Thread-safe.
  */
 public final class SafetyMonitor {
 
     private static final Logger LOG = LogManager.getLogger(SafetyMonitor.class);
     private static final int TOO_MANY_REQUESTS = 429;
     private static final double PERCENT = 100.0;
+    private static final double P95 = 0.95;
     private static final long NANOS_PER_SECOND = TimeUnit.SECONDS.toNanos(1);
+    private static final long NOT_STARTED = Long.MIN_VALUE;
 
     /** Why a run must stop. */
     public enum StopKind { ERROR_RATE, RATE_LIMITED, TOKEN_FAILURE }
 
     /** A stop decision and its human-readable message. */
     public record StopReason(StopKind kind, String message) {
+    }
+
+    /**
+     * p95 of one time window.
+     *
+     * @param p95Millis 95th-percentile response time, empty if the window has no samples
+     * @param samples   number of responses in the window
+     */
+    public record WindowStats(OptionalLong p95Millis, int samples) {
+    }
+
+    /** One response time and when it was recorded, in nanoseconds from the first record. */
+    private record Sample(long offsetNanos, long millis) {
     }
 
     private final double maxErrorPercent;
@@ -44,7 +63,9 @@ public final class SafetyMonitor {
     private final AtomicLong failed = new AtomicLong();
     private final AtomicLong rateLimited = new AtomicLong();
     private final Deque<Long> recentRequestTimes = new ConcurrentLinkedDeque<>();
+    private final Queue<Sample> samples = new ConcurrentLinkedQueue<>();
     private final AtomicReference<StopReason> stopReason = new AtomicReference<>();
+    private final AtomicLong firstRecordNanos = new AtomicLong(NOT_STARTED);
     private final long startNanos;
 
     public SafetyMonitor(double maxErrorPercent, int maxRateLimitResponses, int minSamples,
@@ -66,14 +87,24 @@ public final class SafetyMonitor {
                 System::nanoTime);
     }
 
+    /** Records one measured request without a response time. */
+    public void record(Integer status, boolean ok) {
+        record(status, ok, null);
+    }
+
     /**
      * Records one measured request.
      *
-     * @param status HTTP status, or {@code null} if no response was received
-     * @param ok     whether the request passed all its checks
+     * @param status         HTTP status, or {@code null} if no response was received
+     * @param ok             whether the request passed all its checks
+     * @param responseMillis response time, or {@code null} if unknown
      */
-    public void record(Integer status, boolean ok) {
+    public void record(Integer status, boolean ok, Long responseMillis) {
         long now = nanoClock.getAsLong();
+        firstRecordNanos.compareAndSet(NOT_STARTED, now);
+        if (responseMillis != null) {
+            samples.add(new Sample(now - firstRecordNanos.get(), responseMillis));
+        }
         recentRequestTimes.addLast(now);
         pruneOlderThan(now - rateWindowNanos);
 
@@ -113,6 +144,25 @@ public final class SafetyMonitor {
         pruneOlderThan(now - rateWindowNanos);
         long span = Math.max(NANOS_PER_SECOND, Math.min(rateWindowNanos, now - startNanos));
         return recentRequestTimes.size() * (double) NANOS_PER_SECOND / span;
+    }
+
+    /**
+     * p95 response time of the requests recorded in {@code [from, to)}, measured from the
+     * first recorded request (nearest-rank method).
+     */
+    public WindowStats p95(Duration from, Duration to) {
+        long fromNanos = from.toNanos();
+        long toNanos = to.toNanos();
+        long[] values = samples.stream()
+                .filter(sample -> sample.offsetNanos() >= fromNanos && sample.offsetNanos() < toNanos)
+                .mapToLong(Sample::millis)
+                .sorted()
+                .toArray();
+        if (values.length == 0) {
+            return new WindowStats(OptionalLong.empty(), 0);
+        }
+        int rank = (int) Math.ceil(P95 * values.length);
+        return new WindowStats(OptionalLong.of(values[rank - 1]), values.length);
     }
 
     /** One-line summary for the end-of-run log. */

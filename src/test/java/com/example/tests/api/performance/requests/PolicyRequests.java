@@ -23,8 +23,9 @@ import static io.gatling.javaapi.http.HttpDsl.status;
 
 /**
  * The measured requests (R1-R8 of the scenario document) as Gatling chains.
- * Each request clears the session's failure flag first, checks status 200 and the
- * response-time limit, and reports its outcome to the run's SafetyMonitor.
+ * Each request clears the session's failure flag first, saves its status and response
+ * time, checks status 200 and the response-time limit, and reports to the SafetyMonitor.
+ * Silent requests are sent and counted by the throttle and safety net, but kept out of reports.
  */
 public final class PolicyRequests {
 
@@ -41,6 +42,7 @@ public final class PolicyRequests {
 
     private static final String PAGE_TOKEN = "pageToken";
     private static final String STATUS = "lastHttpStatus";
+    private static final String RESPONSE_TIME = "lastResponseTimeMs";
     private static final String POLICIES_PATH = "/policies";
     private static final String JSON = "application/json";
     private static final String AUTHORIZATION = "Authorization";
@@ -92,7 +94,7 @@ public final class PolicyRequests {
             request = request.queryParam(searchParam, session -> seedSearchText());
         }
         return exec(session -> session.remove(NEXT_TOKEN))
-                .exec(measured(request, nextTokenCheck()));
+                .exec(measured(request, false, nextTokenCheck()));
     }
 
     /** R2 / R4: next page, using the token saved by the previous list request. */
@@ -103,22 +105,27 @@ public final class PolicyRequests {
         }
         request = request.queryParam(nextTokenParam, session -> session.getString(PAGE_TOKEN));
         return exec(session -> session.set(PAGE_TOKEN, session.getString(NEXT_TOKEN)).remove(NEXT_TOKEN))
-                .exec(measured(request, nextTokenCheck()));
+                .exec(measured(request, false, nextTokenCheck()));
     }
 
     /** R5: get the policy whose ID is in the given session key. */
     public ChainBuilder getPolicy(String idKey) {
-        return measured(http(RequestName.GET_POLICY.reportName()).get(session -> policyPath(session, idKey)));
+        return measured(http(RequestName.GET_POLICY.reportName()).get(session -> policyPath(session, idKey)), false);
+    }
+
+    /** R6, measured: create a new policy of the given kind. */
+    public ChainBuilder createPolicy(PolicyKind kind) {
+        return createPolicy(kind, false);
     }
 
     /** R6: create a new policy of the given kind; saves {@link #POLICY_ID} and registers it. */
-    public ChainBuilder createPolicy(PolicyKind kind) {
+    public ChainBuilder createPolicy(PolicyKind kind, boolean silent) {
         HttpRequestActionBuilder request = http(RequestName.CREATE_POLICY.reportName())
                 .post(POLICIES_PATH)
                 .body(StringBody(session -> runtime.payloads().createBody(session.get(POLICY_NAME))))
                 .asJson();
         return exec(session -> session.set(POLICY_NAME, runtime.run().nextName(kind)).remove(POLICY_ID))
-                .exec(measured(request, jsonPath("$." + policyIdField).saveAs(POLICY_ID)))
+                .exec(measured(request, silent, jsonPath("$." + policyIdField).saveAs(POLICY_ID)))
                 .exec(session -> {
                     if (!session.isFailed() && session.contains(POLICY_ID)) {
                         runtime.run().registry().created(session.getString(POLICY_ID), session.get(POLICY_NAME));
@@ -132,12 +139,17 @@ public final class PolicyRequests {
         return measured(http(RequestName.UPDATE_POLICY.reportName())
                 .put(session -> policyPath(session, idKey))
                 .body(StringBody(session -> runtime.payloads().updateBody(session.<PolicyName>get(nameKey))))
-                .asJson());
+                .asJson(), false);
+    }
+
+    /** R8, measured: delete the policy in the given key. */
+    public ChainBuilder deletePolicy(String idKey) {
+        return deletePolicy(idKey, false);
     }
 
     /** R8: delete the policy in the given key; removes it from the registry on success. */
-    public ChainBuilder deletePolicy(String idKey) {
-        return measured(http(RequestName.DELETE_POLICY.reportName()).delete(session -> policyPath(session, idKey)))
+    public ChainBuilder deletePolicy(String idKey, boolean silent) {
+        return measured(http(RequestName.DELETE_POLICY.reportName()).delete(session -> policyPath(session, idKey)), silent)
                 .exec(session -> {
                     if (!session.isFailed()) {
                         runtime.run().registry().deleted(session.getString(idKey));
@@ -148,20 +160,26 @@ public final class PolicyRequests {
 
     // ------------------------------------------------------------------ internals
 
-    private ChainBuilder measured(HttpRequestActionBuilder request, CheckBuilder... extraChecks) {
+    private ChainBuilder measured(HttpRequestActionBuilder request, boolean silent, CheckBuilder... extraChecks) {
         HttpRequestActionBuilder checked = request.check(
                 status().saveAs(STATUS),
+                responseTimeInMillis().saveAs(RESPONSE_TIME),
                 status().is(HTTP_OK),
                 responseTimeInMillis().lte(maxResponseTimeMs));
         if (extraChecks.length > 0) {
             checked = checked.check(extraChecks);
         }
+        if (silent) {
+            checked = checked.silent();
+        }
         return exec(Session::markAsSucceeded)
                 .exec(checked)
                 .exec(session -> {
                     Integer status = session.contains(STATUS) ? session.getInt(STATUS) : null;
-                    runtime.monitor().record(status, !session.isFailed());
-                    return session.remove(STATUS);
+                    Long millis = session.contains(RESPONSE_TIME)
+                            ? ((Number) session.get(RESPONSE_TIME)).longValue() : null;
+                    runtime.monitor().record(status, !session.isFailed(), millis);
+                    return session.remove(STATUS).remove(RESPONSE_TIME);
                 });
     }
 

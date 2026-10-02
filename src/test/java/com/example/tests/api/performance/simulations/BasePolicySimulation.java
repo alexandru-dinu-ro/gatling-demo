@@ -4,6 +4,7 @@ import com.example.tests.api.performance.config.PerfConfig;
 import com.example.tests.api.performance.config.Setting;
 import com.example.tests.api.performance.requests.PolicyRequests;
 import com.example.tests.api.performance.scenarios.PolicyScenarios;
+import com.example.tests.api.performance.scenarios.TrafficShapes;
 import io.gatling.javaapi.core.PopulationBuilder;
 import io.gatling.javaapi.core.Simulation;
 import org.apache.logging.log4j.LogManager;
@@ -20,7 +21,7 @@ import static io.gatling.javaapi.core.CoreDsl.scenario;
 
 /**
  * Parent of every performance simulation. Subclasses only describe their {@link Plan};
- * selection guard, runtime, throttle, assertions, setup and teardown live here.
+ * selection guard, runtime, throttle, assertions, window report, setup and teardown live here.
  *
  * <p>{@link #plan()} is called from this constructor, so subclasses must not rely on
  * their own instance fields inside it (use constants instead).
@@ -40,13 +41,20 @@ public abstract class BasePolicySimulation extends Simulation {
      * @param needsSeed      whether seeded policies are created before the run
      * @param plannedLength  expected injection length (throttle and max duration are based on it)
      * @param withAssertions whether the standard end-of-run assertions apply (false for stress)
+     * @param report         time windows whose p95 is logged at the end
      */
     protected record Plan(PopulationBuilder population, boolean needsSeed, Duration plannedLength,
-                          boolean withAssertions) {
+                          boolean withAssertions, WindowReport report) {
 
         public Plan {
             Objects.requireNonNull(population, "population");
             Objects.requireNonNull(plannedLength, "plannedLength");
+            Objects.requireNonNull(report, "report");
+        }
+
+        /** A plan without a window report. */
+        public Plan(PopulationBuilder population, boolean needsSeed, Duration plannedLength, boolean withAssertions) {
+            this(population, needsSeed, plannedLength, withAssertions, WindowReport.none());
         }
     }
 
@@ -54,7 +62,9 @@ public abstract class BasePolicySimulation extends Simulation {
     private SimulationRuntime runtime;
     private PolicyRequests requests;
     private PolicyScenarios scenarios;
+    private TrafficShapes shapes;
     private boolean needsSeed;
+    private WindowReport report = WindowReport.none();
 
     protected BasePolicySimulation() {
         if (!selected) {
@@ -67,9 +77,11 @@ public abstract class BasePolicySimulation extends Simulation {
         runtime = SimulationRuntime.create(config, getClass().getSimpleName());
         requests = new PolicyRequests(runtime);
         scenarios = new PolicyScenarios(runtime, requests);
+        shapes = new TrafficShapes(config);
 
         Plan plan = plan();
         needsSeed = plan.needsSeed();
+        report = plan.report();
         int rpsCap = (int) Math.floor(config.getDouble(Setting.MAX_RPS));
         SetUp setUp = setUp(plan.population())
                 .protocols(requests.protocol())
@@ -99,6 +111,10 @@ public abstract class BasePolicySimulation extends Simulation {
         return scenarios;
     }
 
+    protected final TrafficShapes shapes() {
+        return shapes;
+    }
+
     @Override
     public void before() {
         if (selected) {
@@ -109,6 +125,7 @@ public abstract class BasePolicySimulation extends Simulation {
     @Override
     public void after() {
         if (selected) {
+            report.log(runtime.monitor());
             runtime.stop();
         }
     }

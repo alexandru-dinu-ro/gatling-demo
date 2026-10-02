@@ -67,6 +67,13 @@ public enum Setting {
     LIST_MAX_PAGES("listMaxPages", Type.INT, Rule.POSITIVE, false),
     POLICY_TEMPLATE("policyTemplate", Type.STRING, Rule.NOT_BLANK, false),
 
+    // --- Principal (the pre-existing user the test policies grant access to) ---
+    PRINCIPAL_ID("principalId", Type.STRING, Rule.NOT_BLANK, true),
+    PRINCIPAL_NAME("principalName", Type.STRING, Rule.NOT_BLANK, true),
+    PRINCIPAL_TYPE("principalType", Type.STRING, Rule.NOT_BLANK, false),
+    PRINCIPAL_SOURCE_DIRECTORY_NAME("principalSourceDirectoryName", Type.STRING, Rule.NOT_BLANK, false),
+    PRINCIPAL_SOURCE_DIRECTORY_ID("principalSourceDirectoryId", Type.STRING, Rule.NOT_BLANK, false),
+
     // --- Mixed workload weights (percent of actions) ---
     MIX_LIST_ALL_PCT("mixListAllPct", Type.INT, Rule.PERCENT, false),
     MIX_LIST_FILTERED_PCT("mixListFilteredPct", Type.INT, Rule.PERCENT, false),

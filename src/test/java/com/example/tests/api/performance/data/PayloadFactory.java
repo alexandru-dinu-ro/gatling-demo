@@ -26,7 +26,8 @@ import java.util.Objects;
  *
  * <p>Each body is a fresh copy of the template with {@code metadata.name},
  * {@code metadata.description}, {@code metadata.policyTags} and
- * {@code metadata.timeFrame.fromTime/toTime} set; everything else is kept as is.
+ * {@code metadata.timeFrame.fromTime/toTime} set, and, when a principal is given,
+ * {@code principals} replaced by that single principal. Everything else is kept as is.
  * Templates are parsed and checked once, at construction. Thread-safe.
  */
 public final class PayloadFactory {
@@ -46,6 +47,12 @@ public final class PayloadFactory {
     private static final String TIME_FRAME = "timeFrame";
     private static final String FROM_TIME = "fromTime";
     private static final String TO_TIME = "toTime";
+    private static final String PRINCIPALS = "principals";
+    private static final String PRINCIPAL_ID = "id";
+    private static final String PRINCIPAL_NAME = "name";
+    private static final String PRINCIPAL_TYPE = "type";
+    private static final String PRINCIPAL_SOURCE_DIRECTORY_NAME = "sourceDirectoryName";
+    private static final String PRINCIPAL_SOURCE_DIRECTORY_ID = "sourceDirectoryId";
 
     private static final String RUN_TAG_PREFIX = "run_";
     private static final String KIND_TAG_PREFIX = "kind_";
@@ -58,29 +65,37 @@ public final class PayloadFactory {
     private final String simulationName;
     private final String environment;
     private final Clock clock;
+    private final PolicyPrincipal principal;
+
+    /** Keeps the templates' own principals. */
+    public PayloadFactory(String createTemplateJson, String updateTemplateJson, ObjectMapper mapper,
+                          String simulationName, String environment, Clock clock) {
+        this(createTemplateJson, updateTemplateJson, mapper, simulationName, environment, clock, null);
+    }
 
     /**
-     * @param createTemplateJson JSON text of the create template
-     * @param updateTemplateJson JSON text of the update template
+     * @param principal the principal to put in every body, or {@code null} to keep the templates' principals
      * @throws IllegalStateException if a template is not valid JSON or lacks the fields to fill
      */
     public PayloadFactory(String createTemplateJson, String updateTemplateJson, ObjectMapper mapper,
-                          String simulationName, String environment, Clock clock) {
+                          String simulationName, String environment, Clock clock, PolicyPrincipal principal) {
         this.mapper = Objects.requireNonNull(mapper, "mapper");
         this.createTemplate = parseTemplate(createTemplateJson, "create template");
         this.updateTemplate = parseTemplate(updateTemplateJson, "update template");
         this.simulationName = Objects.requireNonNull(simulationName, "simulationName");
         this.environment = Objects.requireNonNull(environment, "environment");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.principal = principal;
     }
 
-    /** Loads the templates selected by {@code policyTemplate} from the classpath. */
+    /** Loads the templates selected by {@code policyTemplate} and uses the configured principal. */
     public static PayloadFactory fromConfig(PerfConfig config, String simulationName, ObjectMapper mapper, Clock clock) {
         String type = config.getString(Setting.POLICY_TEMPLATE);
         return new PayloadFactory(
                 loadTemplate(TEMPLATE_DIR + CREATE_TEMPLATE.formatted(type)),
                 loadTemplate(TEMPLATE_DIR + UPDATE_TEMPLATE.formatted(type)),
-                mapper, simulationName, config.getString(Setting.RUN_ENVIRONMENT), clock);
+                mapper, simulationName, config.getString(Setting.RUN_ENVIRONMENT), clock,
+                PolicyPrincipal.from(config));
     }
 
     /** Body for creating the named policy. */
@@ -123,6 +138,15 @@ public final class PayloadFactory {
         ObjectNode timeFrame = (ObjectNode) metadata.get(TIME_FRAME);
         timeFrame.put(FROM_TIME, POLICY_TIME.format(runDay.atStartOfDay()));
         timeFrame.put(TO_TIME, POLICY_TIME.format(runDay.plusDays(1).atTime(END_OF_DAY)));
+
+        if (principal != null) {
+            ObjectNode entry = body.putArray(PRINCIPALS).addObject();
+            entry.put(PRINCIPAL_ID, principal.id());
+            entry.put(PRINCIPAL_NAME, principal.name());
+            entry.put(PRINCIPAL_TYPE, principal.type());
+            entry.put(PRINCIPAL_SOURCE_DIRECTORY_NAME, principal.sourceDirectoryName());
+            entry.put(PRINCIPAL_SOURCE_DIRECTORY_ID, principal.sourceDirectoryId());
+        }
 
         try {
             return mapper.writeValueAsString(body);

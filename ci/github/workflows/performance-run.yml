@@ -1,0 +1,142 @@
+# Reusable workflow: runs one performance simulation against the tenant.
+# Called by the per-type workflows (performance-smoke/load/stress/spike/soak.yml).
+name: Performance run (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      label:
+        description: Test type shown in the run summary, e.g. Stress
+        type: string
+        required: true
+      simulation:
+        description: Simulation class (simple name), e.g. StressUpdateSimulation
+        type: string
+        required: true
+      settings:
+        description: The calling workflow's inputs as JSON, i.e. toJSON(inputs)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: ${{ inputs.label }} · ${{ inputs.simulation }}
+    runs-on: ubuntu-latest
+    # GitHub's maximum; the longest allowed soak (under 360 min) must fit.
+    timeout-minutes: 360
+    # One performance run at a time on the shared tenant, across all performance workflows.
+    concurrency:
+      group: automation-performance-tests
+      cancel-in-progress: false
+    env:
+      SIMULATION_PACKAGE: com.example.tests.api.performance.simulations
+      ARTIFACT_NAME: gatling-${{ inputs.simulation }}-${{ github.run_number }}
+      OUTPUT_FILE: ${{ github.workspace }}/perf-output.log
+      ARGS_FILE: ${{ github.workspace }}/perf-args.txt
+      LOCAL_PROPERTIES: src/test/resources/performance-local.properties
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25 (Zulu)
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '25'
+          cache: maven
+
+      - name: Validate simulation name
+        env:
+          SIMULATION: ${{ inputs.simulation }}
+        run: |
+          if [[ ! "$SIMULATION" =~ ^[A-Z][A-Za-z0-9]*Simulation$ ]]; then
+            echo "::error::invalid simulation name: $SIMULATION"
+            exit 1
+          fi
+
+      - name: Write credentials to the local settings file
+        env:
+          TOKEN_SUBDOMAIN: ${{ secrets.AUTOMATION_PERFORMANCE_TEST_TOKEN_SUBDOMAIN }}
+          CLIENT_ID: ${{ secrets.AUTOMATION_PERFORMANCE_TEST_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AUTOMATION_PERFORMANCE_TEST_CLIENT_SECRET }}
+          API_SUBDOMAIN: ${{ secrets.AUTOMATION_PERFORMANCE_TEST_API_SUBDOMAIN }}
+          PRINCIPAL_ID: ${{ secrets.AUTOMATION_PERFORMANCE_TEST_PRINCIPAL_ID }}
+          PRINCIPAL_NAME: ${{ secrets.AUTOMATION_PERFORMANCE_TEST_PRINCIPAL_NAME }}
+          PRINCIPAL_TYPE: ${{ secrets.AUTOMATION_PERFORMANCE_TEST_PRINCIPAL_TYPE }}
+          PRINCIPAL_SOURCE_DIRECTORY_NAME: ${{ secrets.AUTOMATION_PERFORMANCE_TEST_PRINCIPAL_SOURCE_DIRECTORY_NAME }}
+          PRINCIPAL_SOURCE_DIRECTORY_ID: ${{ secrets.AUTOMATION_PERFORMANCE_TEST_PRINCIPAL_SOURCE_DIRECTORY_ID }}
+        run: |
+          missing=()
+          for name in TOKEN_SUBDOMAIN CLIENT_ID CLIENT_SECRET API_SUBDOMAIN PRINCIPAL_ID PRINCIPAL_NAME \
+                      PRINCIPAL_TYPE PRINCIPAL_SOURCE_DIRECTORY_NAME PRINCIPAL_SOURCE_DIRECTORY_ID; do
+            [[ -n "${!name}" ]] || missing+=("AUTOMATION_PERFORMANCE_TEST_$name")
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::missing repository secrets: ${missing[*]}"
+            exit 1
+          fi
+          umask 077
+          {
+            printf 'tokenSubdomain=%s\n' "$TOKEN_SUBDOMAIN"
+            printf 'clientId=%s\n' "$CLIENT_ID"
+            printf 'clientSecret=%s\n' "$CLIENT_SECRET"
+            printf 'apiSubdomain=%s\n' "$API_SUBDOMAIN"
+            printf 'principalId=%s\n' "$PRINCIPAL_ID"
+            printf 'principalName=%s\n' "$PRINCIPAL_NAME"
+            printf 'principalType=%s\n' "$PRINCIPAL_TYPE"
+            printf 'principalSourceDirectoryName=%s\n' "$PRINCIPAL_SOURCE_DIRECTORY_NAME"
+            printf 'principalSourceDirectoryId=%s\n' "$PRINCIPAL_SOURCE_DIRECTORY_ID"
+          } > "$LOCAL_PROPERTIES"
+
+      - name: Build settings arguments
+        env:
+          SETTINGS_JSON: ${{ inputs.settings }}
+        run: |
+          bash .github/scripts/perf-args.sh > "$ARGS_FILE"
+          echo "Settings overridden for this run:"
+          if [[ -s "$ARGS_FILE" ]]; then cat "$ARGS_FILE"; else echo "(none: committed defaults only)"; fi
+
+      - name: Unit tests (gate)
+        id: gate
+        run: mvn -B test -DtestSuite=performance-unit.xml
+
+      - name: Run simulation
+        id: sim
+        env:
+          SIMULATION: ${{ inputs.simulation }}
+        run: |
+          set -o pipefail
+          mapfile -t settings_args < "$ARGS_FILE"
+          mvn -B gatling:test \
+            -Dgatling.simulationClass="$SIMULATION_PACKAGE.$SIMULATION" \
+            -DperfSimulation="$SIMULATION" \
+            -DrunEnvironment=CI \
+            "${settings_args[@]}" 2>&1 | tee "$OUTPUT_FILE"
+
+      - name: Write run summary
+        if: always()
+        env:
+          LABEL: ${{ inputs.label }}
+          SIMULATION: ${{ inputs.simulation }}
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+          RUN_OUTCOME: ${{ steps.sim.outcome }}
+        run: bash .github/scripts/perf-summary.sh
+
+      - name: Upload Gatling report and run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: |
+            target/gatling/
+            target/artifacts/log4j2/run_log.log
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Remove credentials file
+        if: always()
+        run: rm -f "$LOCAL_PROPERTIES"

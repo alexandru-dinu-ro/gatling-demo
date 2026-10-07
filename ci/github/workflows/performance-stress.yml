@@ -1,0 +1,95 @@
+# Stress performance tests. Runs on demand; all logic is in performance-run.yml.
+name: Performance · Stress
+run-name: Stress · ${{ inputs.simulation }} · #${{ github.run_number }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      simulation:
+        description: "Stress simulation to run; steps up to maxRps. Inform the tenant owners before running."
+        type: choice
+        options: [StressListSimulation, StressGetSimulation, StressCreateSimulation, StressUpdateSimulation, StressDeleteSimulation, StressMixedSimulation]
+        default: StressMixedSimulation
+        required: true
+      stressStartRate:
+        description: "First stress level in requests/second. Empty = default (1)."
+        type: string
+        required: false
+        default: ""
+      stressStepIncrement:
+        description: "Increase per stress level in requests/second. Empty = default (1)."
+        type: string
+        required: false
+        default: ""
+      stressStepDurationMin:
+        description: "Minutes per stress level. Empty = default (2)."
+        type: string
+        required: false
+        default: ""
+      maxRps:
+        description: "Hard cap on requests/second for the whole run. Empty = default (10)."
+        type: string
+        required: false
+        default: ""
+      seedCount:
+        description: "Policies created before the run. Empty = default (100)."
+        type: string
+        required: false
+        default: ""
+      seedRate:
+        description: "Setup creates per second. Empty = default (5)."
+        type: string
+        required: false
+        default: ""
+      maxErrorPercent:
+        description: "Stop the run when more than this % of requests fail. Empty = default (5)."
+        type: string
+        required: false
+        default: ""
+      maxResponseTimeMs:
+        description: "A slower response counts as failed, in ms. Empty = default (30000)."
+        type: string
+        required: false
+        default: ""
+      maxRateLimitResponses:
+        description: "Stop the run after more HTTP 429 responses than this. Empty = default (5)."
+        type: string
+        required: false
+        default: ""
+      listMaxPages:
+        description: "Pages one list action reads at most. Empty = default (3)."
+        type: string
+        required: false
+        default: ""
+      mixWeights:
+        description: "Mixed-workload shares in %: listAll,listFiltered,get,write (must total 100). Empty = default (25,20,40,15)."
+        type: string
+        required: false
+        default: ""
+      allowConcurrentRuns:
+        description: "Start even if another run's policies are under 7 hours old. Use true only if that run crashed."
+        type: choice
+        options: [default, "true", "false"]
+        default: default
+      policyTemplate:
+        description: "Payload template type (policy-create-<type>.json). Empty = default (vm)."
+        type: string
+        required: false
+        default: ""
+      extraProperties:
+        description: "Any other setting: -Dname=value items separated by spaces, e.g. -DseedRate=3 -DlistMaxPages=5."
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    uses: ./.github/workflows/performance-run.yml
+    with:
+      label: Stress
+      simulation: ${{ inputs.simulation }}
+      settings: ${{ toJSON(inputs) }}
+    secrets: inherit

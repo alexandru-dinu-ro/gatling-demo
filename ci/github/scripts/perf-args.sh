@@ -26,7 +26,7 @@ fail() {
 }
 
 settings="${SETTINGS_JSON:-}"
-[[ -n "$settings" ]] || settings='{}'
+[[ -n "$settings" && "$settings" != "null" ]] || settings='{}'
 jq -e 'type == "object"' >/dev/null <<<"$settings" || fail "SETTINGS_JSON is not a JSON object"
 
 # Reads one input as a trimmed string ("" if absent or null).

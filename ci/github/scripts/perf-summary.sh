@@ -27,6 +27,15 @@ pick() {
   grep -E "$1" "$output" | strip_prefix || true
 }
 
+# Prints Gatling's final statistics only: the "> " lines after the last "Global Information"
+# heading (the periodic progress reports during the run also start with "> ").
+final_stats() {
+  [[ -f "$output" ]] || return 0
+  awk '/---- Global Information/ { stats = ""; capture = 1; next }
+       capture && /^> / { stats = stats $0 "\n" }
+       END { printf "%s", stats }' "$output"
+}
+
 # Prints a fenced block with a heading, only if there is content.
 block() {
   local heading="$1" content="$2"
@@ -52,7 +61,7 @@ esac
   fi
 
   block "Outcome" "$(pick 'planned length|finished:|Safety stop|Setup failed|configuration has|still the placeholder|: missing|must be')"
-  block "Response times (all measured requests, ms)" "$(pick '^> ')"
+  block "Response times (all measured requests, ms)" "$(final_stats)"
   block "Assertions" "$(pick '^Global: ')"
   block "Time windows" "$(pick 'p95 |Recovery check')"
 

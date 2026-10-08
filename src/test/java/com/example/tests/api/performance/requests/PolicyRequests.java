@@ -5,6 +5,7 @@ import com.example.tests.api.performance.config.Setting;
 import com.example.tests.api.performance.data.OwnedPolicy;
 import com.example.tests.api.performance.data.PolicyKind;
 import com.example.tests.api.performance.data.PolicyName;
+import com.example.tests.api.performance.http.ProxySettings;
 import com.example.tests.api.performance.simulations.SimulationRuntime;
 import io.gatling.javaapi.core.ChainBuilder;
 import io.gatling.javaapi.core.CheckBuilder;
@@ -14,6 +15,7 @@ import io.gatling.javaapi.http.HttpRequestActionBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.net.URI;
 import java.util.Objects;
 
 import static io.gatling.javaapi.core.CoreDsl.StringBody;
@@ -21,6 +23,7 @@ import static io.gatling.javaapi.core.CoreDsl.bodyString;
 import static io.gatling.javaapi.core.CoreDsl.exec;
 import static io.gatling.javaapi.core.CoreDsl.jsonPath;
 import static io.gatling.javaapi.core.CoreDsl.responseTimeInMillis;
+import static io.gatling.javaapi.http.HttpDsl.Proxy;
 import static io.gatling.javaapi.http.HttpDsl.http;
 import static io.gatling.javaapi.http.HttpDsl.status;
 
@@ -76,10 +79,17 @@ public final class PolicyRequests {
 
     /** HTTP protocol shared by every request: base URL, JSON, current bearer token. */
     public HttpProtocolBuilder protocol() {
-        return http.baseUrl(runtime.config().apiBaseUrl())
+        String baseUrl = runtime.config().apiBaseUrl();
+        HttpProtocolBuilder protocol = http.baseUrl(baseUrl)
                 .acceptHeader(JSON)
                 .header(AUTHORIZATION, session -> BEARER + runtime.tokens().current())
                 .disableCaching();
+        ProxySettings proxy = ProxySettings.from(runtime.config());
+        if (proxy.appliesTo(URI.create(baseUrl).getHost())) {
+            LOG.info("Measured requests use proxy {}", proxy);
+            protocol = protocol.proxy(Proxy(proxy.host(), proxy.port()));
+        }
+        return protocol;
     }
 
     /** True if the last list response carried a non-empty next-page token. */

@@ -96,7 +96,13 @@ jobs:
         env:
           SETTINGS_JSON: ${{ inputs.settings }}
         run: |
-          bash .github/scripts/perf-args.sh > "$ARGS_FILE"
+          : > "$ARGS_FILE"
+          # Java ignores HTTPS_PROXY / NO_PROXY, so pass the worker's proxy on as settings (first, so form values win).
+          proxy="${HTTPS_PROXY:-${https_proxy:-}}"
+          no_proxy_hosts="${NO_PROXY:-${no_proxy:-}}"
+          if [[ -n "$proxy" ]]; then echo "-DhttpsProxy=$proxy" >> "$ARGS_FILE"; fi
+          if [[ -n "$no_proxy_hosts" ]]; then echo "-DnoProxyHosts=$no_proxy_hosts" >> "$ARGS_FILE"; fi
+          bash .github/scripts/perf-args.sh >> "$ARGS_FILE"
           echo "Settings overridden for this run:"
           if [[ -s "$ARGS_FILE" ]]; then cat "$ARGS_FILE"; else echo "(none: committed defaults only)"; fi
 

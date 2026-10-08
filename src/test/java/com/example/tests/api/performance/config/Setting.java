@@ -18,6 +18,8 @@ public enum Setting {
     TOKEN_URL_TEMPLATE("tokenUrlTemplate", Type.STRING, Rule.URL_TEMPLATE, false),
     API_BASE_URL_TEMPLATE("apiBaseUrlTemplate", Type.STRING, Rule.URL_TEMPLATE, false),
     RUN_ENVIRONMENT("runEnvironment", Type.STRING, Rule.NOT_BLANK, false),
+    HTTPS_PROXY("httpsProxy", Type.STRING, Rule.NOT_BLANK, false),
+    NO_PROXY_HOSTS("noProxyHosts", Type.STRING, Rule.NOT_BLANK, false),
 
     // --- API shape ---
     POLICY_ID_FIELD("policyIdField", Type.STRING, Rule.NOT_BLANK, false),

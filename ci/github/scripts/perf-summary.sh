@@ -27,12 +27,14 @@ pick() {
   grep -E "$1" "$output" | strip_prefix || true
 }
 
-# Prints Gatling's final statistics only: the "> " lines after the last "Global Information"
-# heading (the periodic progress reports during the run also start with "> ").
+# Prints Gatling's final statistics block exactly as in the run log: from the "====" border before
+# the last "---- Global Information" heading, through the closing "====" border (headers included,
+# so the Total / OK / KO columns stay labelled). Progress reports during the run are skipped.
 final_stats() {
   [[ -f "$output" ]] || return 0
-  awk '/---- Global Information/ { stats = ""; capture = 1; next }
-       capture && /^> / { stats = stats $0 "\n" }
+  awk '/---- Global Information/ { stats = previous "\n" $0 "\n"; capture = 1; previous = $0; next }
+       capture { stats = stats $0 "\n"; if (/^=+[[:space:]]*$/) capture = 0 }
+       { previous = $0 }
        END { printf "%s", stats }' "$output"
 }
 

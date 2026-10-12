@@ -1,0 +1,184 @@
+# Runs a chosen list of performance simulations one after another, in list order.
+# If the list starts with Smoke, Smoke runs first as a gate: when it fails, nothing else runs.
+# Each simulation is a job calling performance-run.yml (own summary section and artifact).
+name: Performance · All
+run-name: All · ${{ inputs.simulations }} · #${{ github.run_number }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      simulations:
+        description: "Simulations to run, in order, comma-separated (short names; repeats allowed). Starting with Smoke makes it a gate. Inform the tenant owners before stress/spike."
+        type: string
+        required: true
+        default: "Smoke, LoadList, LoadCrud, LoadMixed, StressList, StressGet, StressCreate, StressUpdate, StressDelete, StressMixed, SpikeMixed, SoakMixed"
+      normalRate:
+        description: "Normal traffic in requests/second (load, spike, soak). Empty = default (2)."
+        type: string
+        required: false
+        default: ""
+      rampUpMin:
+        description: "Minutes to ramp from 0 to normalRate (load, soak). Empty = default (2)."
+        type: string
+        required: false
+        default: ""
+      loadDurationMin:
+        description: "Hold time of LoadMixed in minutes. Empty = default (15)."
+        type: string
+        required: false
+        default: ""
+      isolatedLoadDurationMin:
+        description: "Hold time of LoadList and of each LoadCrud phase, in minutes. Empty = default (5)."
+        type: string
+        required: false
+        default: ""
+      stressStartRate:
+        description: "First stress level in requests/second. Empty = default (1)."
+        type: string
+        required: false
+        default: ""
+      stressStepIncrement:
+        description: "Increase per stress level in requests/second. Empty = default (1)."
+        type: string
+        required: false
+        default: ""
+      stressStepDurationMin:
+        description: "Minutes per stress level. Empty = default (2)."
+        type: string
+        required: false
+        default: ""
+      spikeRate:
+        description: "Spike height in requests/second (at most maxRps). Empty = default (10)."
+        type: string
+        required: false
+        default: ""
+      spikeDurationSec:
+        description: "Spike length in seconds. Empty = default (60)."
+        type: string
+        required: false
+        default: ""
+      spikeWarmupMin:
+        description: "Minutes at normalRate before the spike. Empty = default (3)."
+        type: string
+        required: false
+        default: ""
+      spikeRecoveryMin:
+        description: "Minutes at normalRate after the spike. Empty = default (5)."
+        type: string
+        required: false
+        default: ""
+      soakDurationMin:
+        description: "Soak hold time in minutes; must stay under 360 in CI. Empty = default (60)."
+        type: string
+        required: false
+        default: ""
+      maxRps:
+        description: "Hard cap on requests/second for each run. Empty = default (10)."
+        type: string
+        required: false
+        default: ""
+      seedCount:
+        description: "Policies created before each run. Empty = default (100)."
+        type: string
+        required: false
+        default: ""
+      seedRate:
+        description: "Setup creates per second. Empty = default (5)."
+        type: string
+        required: false
+        default: ""
+      maxErrorPercent:
+        description: "Stop a run when more than this % of requests fail. Empty = default (5)."
+        type: string
+        required: false
+        default: ""
+      maxResponseTimeMs:
+        description: "A slower response counts as failed, in ms. Empty = default (30000)."
+        type: string
+        required: false
+        default: ""
+      maxRateLimitResponses:
+        description: "Stop a run after more HTTP 429 responses than this. Empty = default (5)."
+        type: string
+        required: false
+        default: ""
+      listMaxPages:
+        description: "Pages one list action reads at most. Empty = default (3)."
+        type: string
+        required: false
+        default: ""
+      mixWeights:
+        description: "Mixed-workload shares in %: listAll,listFiltered,get,write (must total 100). Empty = default (25,20,40,15)."
+        type: string
+        required: false
+        default: ""
+      allowConcurrentRuns:
+        description: "Start even if another run's policies are under 7 hours old. Use true only if that run crashed."
+        type: choice
+        options: [default, "true", "false"]
+        default: default
+      policyTemplate:
+        description: "Payload template type (policy-create-<type>.json). Empty = default (vm)."
+        type: string
+        required: false
+        default: ""
+      extraProperties:
+        description: "Any other setting: -Dname=value items separated by spaces, e.g. -DseedRate=3 -DlistMaxPages=5."
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    outputs:
+      gate: ${{ steps.plan.outputs.gate }}
+      rest: ${{ steps.plan.outputs.rest }}
+      rest_count: ${{ steps.plan.outputs.rest_count }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Check the list and plan the jobs
+        id: plan
+        env:
+          SIMULATIONS: ${{ inputs.simulations }}
+        run: bash .github/scripts/perf-plan.sh
+
+  gate:
+    name: Gate
+    needs: plan
+    if: needs.plan.outputs.gate == 'true'
+    uses: ./.github/workflows/performance-run.yml
+    with:
+      label: Smoke
+      simulation: SmokeSimulation
+      settings: ${{ toJSON(inputs) }}
+      artifactPrefix: "01-"
+    secrets: inherit
+
+  run:
+    name: Run
+    needs: [plan, gate]
+    # Runs unless planning failed, nothing is left, or the Smoke gate ran and failed.
+    if: >-
+      ${{ always()
+          && needs.plan.result == 'success'
+          && needs.plan.outputs.rest_count != '0'
+          && (needs.plan.outputs.gate != 'true' || needs.gate.result == 'success') }}
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.rest) }}
+    uses: ./.github/workflows/performance-run.yml
+    with:
+      label: ${{ matrix.label }}
+      simulation: ${{ matrix.simulation }}
+      settings: ${{ toJSON(inputs) }}
+      artifactPrefix: ${{ format('{0}-', matrix.position) }}
+    secrets: inherit

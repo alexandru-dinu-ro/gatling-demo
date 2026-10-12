@@ -17,6 +17,11 @@ on:
         description: The calling workflow's inputs as JSON, i.e. toJSON(inputs)
         type: string
         required: true
+      artifactPrefix:
+        description: Optional text in front of the artifact name, e.g. "03-" for the 3rd job of an All run
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -33,7 +38,7 @@ jobs:
       cancel-in-progress: false
     env:
       SIMULATION_PACKAGE: com.example.tests.api.performance.simulations
-      ARTIFACT_NAME: gatling-${{ inputs.simulation }}-${{ github.run_number }}
+      ARTIFACT_NAME: ${{ inputs.artifactPrefix }}gatling-${{ inputs.simulation }}-${{ github.run_number }}
       OUTPUT_FILE: ${{ github.workspace }}/perf-output.log
       ARGS_FILE: ${{ github.workspace }}/perf-args.txt
       LOCAL_PROPERTIES: src/test/resources/performance-local.properties

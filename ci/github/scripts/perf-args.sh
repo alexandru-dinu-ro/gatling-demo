@@ -13,7 +13,7 @@
 #   - properties the workflow sets itself cannot be overridden
 set -euo pipefail
 
-SKIPPED_INPUTS='^(simulation|extraProperties|mixWeights|allowConcurrentRuns)$'
+SKIPPED_INPUTS='^(simulation|simulations|extraProperties|mixWeights|allowConcurrentRuns)$'
 INPUT_NAME='^[A-Za-z][A-Za-z0-9]*$'
 EXTRA_ITEM='^-D[A-Za-z][A-Za-z0-9_.-]*=.*$'
 RESERVED='^-D(gatling\.simulationClass|perfSimulation|runEnvironment)='

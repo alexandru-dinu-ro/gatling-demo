@@ -21,7 +21,10 @@ from this copy, carry it over by hand and keep these differences:
 | Step names | As written here | May follow the framework's naming style |
 | Network | Direct internet access | Through the worker's proxy; the workflow passes `HTTPS_PROXY` / `NO_PROXY` on as `httpsProxy` / `noProxyHosts` (this part is identical in both) |
 
-`perf-args.sh`, `perf-summary.sh` and the five per-type workflows are used unchanged.
+`perf-args.sh`, `perf-summary.sh`, `perf-plan.sh` and the five per-type workflows are used unchanged.
+
+`performance-all.yml` (run a chosen list of simulations in order) is used unchanged **except** its
+`plan` job's `runs-on`, which must use the framework's runner labels like the reusable workflow.
 
 ## Secrets (framework repository)
 

@@ -93,8 +93,8 @@ for i in "${!names[@]}"; do
     continue
   fi
   plan+=("$position $name")
-  rest="$(jq -c --arg position "$position" --arg label "$(label_of "$name")" --arg simulation "$name$SUFFIX" \
-    '. + [{"position": $position, "label": $label, "simulation": $simulation}]' <<<"$rest")"
+  rest="$(jq -c --arg position "$position" --arg run_label "$(label_of "$name")" --arg simulation "$name$SUFFIX" \
+    '. + [{"position": $position, "label": $run_label, "simulation": $simulation}]' <<<"$rest")"
 done
 
 echo "Plan:" >&2

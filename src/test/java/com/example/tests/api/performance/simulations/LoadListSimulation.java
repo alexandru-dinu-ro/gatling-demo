@@ -23,6 +23,6 @@ public class LoadListSimulation extends BasePolicySimulation {
         TrafficShapes.Shape shape = shapes().load(scenarios().requestsPerAction(action), hold);
         return new Plan(
                 scenario(SCENARIO_NAME).exec(scenarios().isolated(action, true)).injectOpen(shape.steps()),
-                action.needsSeed(), shape.length(), true);
+                action.needsSeed(), shape.length(), true, WindowReport.none(), Setting.P95_TARGET_LOAD_LIST_MS);
     }
 }

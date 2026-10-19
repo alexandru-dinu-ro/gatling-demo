@@ -23,6 +23,6 @@ public class SoakMixedSimulation extends BasePolicySimulation {
         WindowReport report = WindowReport.of(WindowReport.consecutive(WINDOW_LABEL, window, shape.length()));
         return new Plan(
                 scenario(SCENARIO_NAME).exec(scenarios().mixed(true)).injectOpen(shape.steps()),
-                true, shape.length(), true, report);
+                true, shape.length(), true, report, Setting.P95_TARGET_SOAK_MIXED_MS);
     }
 }

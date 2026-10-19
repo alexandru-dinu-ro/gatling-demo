@@ -60,6 +60,13 @@ public enum Setting {
     SPIKE_RECOVERY_TOLERANCE_PCT("spikeRecoveryTolerancePct", Type.DOUBLE, Rule.NON_NEGATIVE, false),
     SOAK_REPORT_WINDOW_MIN("soakReportWindowMin", Type.INT, Rule.POSITIVE, false),
 
+    // --- p95 targets per simulation (ms; 0 = no target) ---
+    P95_TARGET_LOAD_LIST_MS("p95TargetLoadListMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P95_TARGET_LOAD_CRUD_MS("p95TargetLoadCrudMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P95_TARGET_LOAD_MIXED_MS("p95TargetLoadMixedMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P95_TARGET_SPIKE_MIXED_MS("p95TargetSpikeMixedMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P95_TARGET_SOAK_MIXED_MS("p95TargetSoakMixedMs", Type.INT, Rule.NON_NEGATIVE, false),
+
     // --- Test data and runs ---
     NAME_PREFIX("namePrefix", Type.STRING, Rule.NOT_BLANK, false),
     SEED_COUNT("seedCount", Type.INT, Rule.POSITIVE, false),

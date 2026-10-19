@@ -21,6 +21,6 @@ public class LoadMixedSimulation extends BasePolicySimulation {
         TrafficShapes.Shape shape = shapes().load(scenarios().mixedRequestsPerAction(), hold);
         return new Plan(
                 scenario(SCENARIO_NAME).exec(scenarios().mixed(true)).injectOpen(shape.steps()),
-                true, shape.length(), true);
+                true, shape.length(), true, WindowReport.none(), Setting.P95_TARGET_LOAD_MIXED_MS);
     }
 }

@@ -5,12 +5,15 @@ import com.example.tests.api.performance.config.Setting;
 import com.example.tests.api.performance.requests.PolicyRequests;
 import com.example.tests.api.performance.scenarios.PolicyScenarios;
 import com.example.tests.api.performance.scenarios.TrafficShapes;
+import io.gatling.javaapi.core.Assertion;
 import io.gatling.javaapi.core.PopulationBuilder;
 import io.gatling.javaapi.core.Simulation;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import static io.gatling.javaapi.core.CoreDsl.atOnceUsers;
@@ -33,6 +36,7 @@ public abstract class BasePolicySimulation extends Simulation {
     /** Extra time on top of a plan's length before Gatling force-stops the run. */
     private static final Duration MAX_DURATION_MARGIN = Duration.ofMinutes(2);
     private static final Duration THROTTLE_RAMP = Duration.ofSeconds(1);
+    private static final double P95 = 95.0;
 
     /**
      * What a simulation runs.
@@ -42,9 +46,10 @@ public abstract class BasePolicySimulation extends Simulation {
      * @param plannedLength  expected injection length (throttle and max duration are based on it)
      * @param withAssertions whether the standard end-of-run assertions apply (false for stress)
      * @param report         time windows whose p95 is logged at the end
+     * @param p95Target      setting holding this simulation's p95 target in ms (0 = none), or null for none
      */
     protected record Plan(PopulationBuilder population, boolean needsSeed, Duration plannedLength,
-                          boolean withAssertions, WindowReport report) {
+                          boolean withAssertions, WindowReport report, Setting p95Target) {
 
         public Plan {
             Objects.requireNonNull(population, "population");
@@ -52,9 +57,15 @@ public abstract class BasePolicySimulation extends Simulation {
             Objects.requireNonNull(report, "report");
         }
 
-        /** A plan without a window report. */
+        /** A plan with a window report and no p95 target. */
+        public Plan(PopulationBuilder population, boolean needsSeed, Duration plannedLength, boolean withAssertions,
+                    WindowReport report) {
+            this(population, needsSeed, plannedLength, withAssertions, report, null);
+        }
+
+        /** A plan without a window report or p95 target. */
         public Plan(PopulationBuilder population, boolean needsSeed, Duration plannedLength, boolean withAssertions) {
-            this(population, needsSeed, plannedLength, withAssertions, WindowReport.none());
+            this(population, needsSeed, plannedLength, withAssertions, WindowReport.none(), null);
         }
     }
 
@@ -87,13 +98,19 @@ public abstract class BasePolicySimulation extends Simulation {
                 .protocols(requests.protocol())
                 .throttle(reachRps(rpsCap).in(THROTTLE_RAMP), holdFor(plan.plannedLength().plus(MAX_DURATION_MARGIN)))
                 .maxDuration(plan.plannedLength().plus(MAX_DURATION_MARGIN));
+        int p95TargetMs = plan.p95Target() == null ? 0 : config.getInt(plan.p95Target());
         if (plan.withAssertions()) {
-            setUp.assertions(
+            List<Assertion> assertions = new ArrayList<>(List.of(
                     global().failedRequests().percent().lte(config.getDouble(Setting.MAX_ERROR_PERCENT)),
-                    global().responseTime().max().lt(config.getInt(Setting.MAX_RESPONSE_TIME_MS)));
+                    global().responseTime().max().lt(config.getInt(Setting.MAX_RESPONSE_TIME_MS))));
+            if (p95TargetMs > 0) {
+                assertions.add(global().responseTime().percentile(P95).lt(p95TargetMs));
+            }
+            setUp.assertions(assertions);
         }
-        LOG.info("{}: throttle {} req/s, planned length {}, seed {}, assertions {}", getClass().getSimpleName(),
-                rpsCap, plan.plannedLength(), needsSeed ? "yes" : "no", plan.withAssertions() ? "on" : "off");
+        LOG.info("{}: throttle {} req/s, planned length {}, seed {}, assertions {}{}", getClass().getSimpleName(),
+                rpsCap, plan.plannedLength(), needsSeed ? "yes" : "no", plan.withAssertions() ? "on" : "off",
+                plan.withAssertions() && p95TargetMs > 0 ? ", p95 target " + p95TargetMs + " ms" : "");
     }
 
     /** The simulation's plan. Called once, from the constructor. */

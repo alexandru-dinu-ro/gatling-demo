@@ -42,6 +42,6 @@ public class LoadCrudSimulation extends BasePolicySimulation {
                                         .injectOpen(delete.steps()))));
 
         Duration length = create.length().plus(get.length()).plus(update.length()).plus(delete.length());
-        return new Plan(phases, false, length, true);
+        return new Plan(phases, false, length, true, WindowReport.none(), Setting.P95_TARGET_LOAD_CRUD_MS);
     }
 }

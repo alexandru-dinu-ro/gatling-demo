@@ -34,6 +34,6 @@ public class SpikeMixedSimulation extends BasePolicySimulation {
 
         return new Plan(
                 scenario(SCENARIO_NAME).exec(scenarios().mixed(true)).injectOpen(spike.shape().steps()),
-                true, end, true, report);
+                true, end, true, report, Setting.P95_TARGET_SPIKE_MIXED_MS);
     }
 }

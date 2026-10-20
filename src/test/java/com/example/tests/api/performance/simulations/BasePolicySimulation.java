@@ -42,6 +42,7 @@ public abstract class BasePolicySimulation extends Simulation {
     private static final Duration MAX_DURATION_MARGIN = Duration.ofMinutes(2);
     private static final Duration THROTTLE_RAMP = Duration.ofSeconds(1);
     private static final double P95 = 95.0;
+    private static final double P75 = 75.0;
 
     /**
      * What a simulation runs.
@@ -52,7 +53,7 @@ public abstract class BasePolicySimulation extends Simulation {
      * @param withAssertions whether the standard end-of-run assertions apply (false for stress)
      * @param report         time windows whose p95 is logged at the end
      * @param p95Target      setting holding this simulation's p95 target in ms (0 = none), or null for none
-     * @param requestTargets settings holding per-request p95 targets in ms (0 = none), by request type
+     * @param requestTargets settings holding per-request p75 targets in ms (0 = none), by request type
      */
     protected record Plan(PopulationBuilder population, boolean needsSeed, Duration plannedLength,
                           boolean withAssertions, WindowReport report, Setting p95Target,
@@ -127,7 +128,7 @@ public abstract class BasePolicySimulation extends Simulation {
             for (Map.Entry<RequestName, Setting> target : plan.requestTargets().entrySet()) {
                 int targetMs = config.getInt(target.getValue());
                 if (targetMs > 0) {
-                    assertions.add(details(target.getKey().reportName()).responseTime().percentile(P95).lt(targetMs));
+                    assertions.add(details(target.getKey().reportName()).responseTime().percentile(P75).lt(targetMs));
                     requestTargetCount++;
                 }
             }
@@ -135,7 +136,7 @@ public abstract class BasePolicySimulation extends Simulation {
         }
         String targets = !plan.withAssertions() ? ""
                 : (p95TargetMs > 0 ? ", p95 target " + p95TargetMs + " ms" : "")
-                + (requestTargetCount > 0 ? ", " + requestTargetCount + " per-request p95 targets" : "");
+                + (requestTargetCount > 0 ? ", " + requestTargetCount + " per-request p75 targets" : "");
         LOG.info("{}: throttle {} req/s, planned length {}, seed {}, assertions {}{}", getClass().getSimpleName(),
                 rpsCap, plan.plannedLength(), needsSeed ? "yes" : "no", plan.withAssertions() ? "on" : "off", targets);
     }

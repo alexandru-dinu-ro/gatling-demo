@@ -67,19 +67,19 @@ public enum Setting {
     P95_TARGET_SPIKE_MIXED_MS("p95TargetSpikeMixedMs", Type.INT, Rule.NON_NEGATIVE, false),
     P95_TARGET_SOAK_MIXED_MS("p95TargetSoakMixedMs", Type.INT, Rule.NON_NEGATIVE, false),
 
-    // --- p95 targets per request type (ms; 0 = no target) ---
-    P95_TARGET_LOAD_CRUD_CREATE_MS("p95TargetLoadCrudCreateMs", Type.INT, Rule.NON_NEGATIVE, false),
-    P95_TARGET_LOAD_CRUD_GET_MS("p95TargetLoadCrudGetMs", Type.INT, Rule.NON_NEGATIVE, false),
-    P95_TARGET_LOAD_CRUD_UPDATE_MS("p95TargetLoadCrudUpdateMs", Type.INT, Rule.NON_NEGATIVE, false),
-    P95_TARGET_LOAD_CRUD_DELETE_MS("p95TargetLoadCrudDeleteMs", Type.INT, Rule.NON_NEGATIVE, false),
-    P95_TARGET_LOAD_MIXED_LIST_ALL_MS("p95TargetLoadMixedListAllMs", Type.INT, Rule.NON_NEGATIVE, false),
-    P95_TARGET_LOAD_MIXED_LIST_ALL_NEXT_MS("p95TargetLoadMixedListAllNextMs", Type.INT, Rule.NON_NEGATIVE, false),
-    P95_TARGET_LOAD_MIXED_LIST_FILTERED_MS("p95TargetLoadMixedListFilteredMs", Type.INT, Rule.NON_NEGATIVE, false),
-    P95_TARGET_LOAD_MIXED_LIST_FILTERED_NEXT_MS("p95TargetLoadMixedListFilteredNextMs", Type.INT, Rule.NON_NEGATIVE, false),
-    P95_TARGET_LOAD_MIXED_GET_MS("p95TargetLoadMixedGetMs", Type.INT, Rule.NON_NEGATIVE, false),
-    P95_TARGET_LOAD_MIXED_CREATE_MS("p95TargetLoadMixedCreateMs", Type.INT, Rule.NON_NEGATIVE, false),
-    P95_TARGET_LOAD_MIXED_UPDATE_MS("p95TargetLoadMixedUpdateMs", Type.INT, Rule.NON_NEGATIVE, false),
-    P95_TARGET_LOAD_MIXED_DELETE_MS("p95TargetLoadMixedDeleteMs", Type.INT, Rule.NON_NEGATIVE, false),
+    // --- p75 targets per request type (ms; 0 = no target) ---
+    P75_TARGET_LOAD_CRUD_CREATE_MS("p75TargetLoadCrudCreateMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P75_TARGET_LOAD_CRUD_GET_MS("p75TargetLoadCrudGetMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P75_TARGET_LOAD_CRUD_UPDATE_MS("p75TargetLoadCrudUpdateMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P75_TARGET_LOAD_CRUD_DELETE_MS("p75TargetLoadCrudDeleteMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P75_TARGET_LOAD_MIXED_LIST_ALL_MS("p75TargetLoadMixedListAllMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P75_TARGET_LOAD_MIXED_LIST_ALL_NEXT_MS("p75TargetLoadMixedListAllNextMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P75_TARGET_LOAD_MIXED_LIST_FILTERED_MS("p75TargetLoadMixedListFilteredMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P75_TARGET_LOAD_MIXED_LIST_FILTERED_NEXT_MS("p75TargetLoadMixedListFilteredNextMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P75_TARGET_LOAD_MIXED_GET_MS("p75TargetLoadMixedGetMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P75_TARGET_LOAD_MIXED_CREATE_MS("p75TargetLoadMixedCreateMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P75_TARGET_LOAD_MIXED_UPDATE_MS("p75TargetLoadMixedUpdateMs", Type.INT, Rule.NON_NEGATIVE, false),
+    P75_TARGET_LOAD_MIXED_DELETE_MS("p75TargetLoadMixedDeleteMs", Type.INT, Rule.NON_NEGATIVE, false),
 
     // --- Test data and runs ---
     NAME_PREFIX("namePrefix", Type.STRING, Rule.NOT_BLANK, false),

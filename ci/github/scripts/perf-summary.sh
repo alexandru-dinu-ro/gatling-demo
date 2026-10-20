@@ -64,7 +64,7 @@ esac
 
   block "Outcome" "$(pick 'planned length|finished:|Safety stop|Setup failed|configuration has|still the placeholder|: missing|must be')"
   block "Response times (all measured requests, ms)" "$(final_stats)"
-  block "Assertions" "$(pick '^Global: ')"
+  block "Assertions" "$(pick ' : (true|false) \(actual : ')"
   block "Time windows" "$(pick 'p95 [^:]+: ([0-9]+ ms|no data) \([0-9]+ requests\)|Recovery check:')"
 
   failed_count=0

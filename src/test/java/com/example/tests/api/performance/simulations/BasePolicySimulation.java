@@ -2,6 +2,7 @@ package com.example.tests.api.performance.simulations;
 
 import com.example.tests.api.performance.config.PerfConfig;
 import com.example.tests.api.performance.config.Setting;
+import com.example.tests.api.performance.requests.RequestName;
 import com.example.tests.api.performance.requests.PolicyRequests;
 import com.example.tests.api.performance.scenarios.PolicyScenarios;
 import com.example.tests.api.performance.scenarios.TrafficShapes;
@@ -13,10 +14,14 @@ import org.apache.logging.log4j.Logger;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static io.gatling.javaapi.core.CoreDsl.atOnceUsers;
+import static io.gatling.javaapi.core.CoreDsl.details;
 import static io.gatling.javaapi.core.CoreDsl.global;
 import static io.gatling.javaapi.core.CoreDsl.holdFor;
 import static io.gatling.javaapi.core.CoreDsl.reachRps;
@@ -47,14 +52,26 @@ public abstract class BasePolicySimulation extends Simulation {
      * @param withAssertions whether the standard end-of-run assertions apply (false for stress)
      * @param report         time windows whose p95 is logged at the end
      * @param p95Target      setting holding this simulation's p95 target in ms (0 = none), or null for none
+     * @param requestTargets settings holding per-request p95 targets in ms (0 = none), by request type
      */
     protected record Plan(PopulationBuilder population, boolean needsSeed, Duration plannedLength,
-                          boolean withAssertions, WindowReport report, Setting p95Target) {
+                          boolean withAssertions, WindowReport report, Setting p95Target,
+                          Map<RequestName, Setting> requestTargets) {
 
         public Plan {
             Objects.requireNonNull(population, "population");
             Objects.requireNonNull(plannedLength, "plannedLength");
             Objects.requireNonNull(report, "report");
+            Objects.requireNonNull(requestTargets, "requestTargets");
+            // EnumMap keeps the assertions in RequestName order, whatever map the caller passed.
+            requestTargets = requestTargets.isEmpty() ? Map.of()
+                    : Collections.unmodifiableMap(new EnumMap<>(requestTargets));
+        }
+
+        /** A plan with an overall p95 target and no per-request targets. */
+        public Plan(PopulationBuilder population, boolean needsSeed, Duration plannedLength, boolean withAssertions,
+                    WindowReport report, Setting p95Target) {
+            this(population, needsSeed, plannedLength, withAssertions, report, p95Target, Map.of());
         }
 
         /** A plan with a window report and no p95 target. */
@@ -99,6 +116,7 @@ public abstract class BasePolicySimulation extends Simulation {
                 .throttle(reachRps(rpsCap).in(THROTTLE_RAMP), holdFor(plan.plannedLength().plus(MAX_DURATION_MARGIN)))
                 .maxDuration(plan.plannedLength().plus(MAX_DURATION_MARGIN));
         int p95TargetMs = plan.p95Target() == null ? 0 : config.getInt(plan.p95Target());
+        int requestTargetCount = 0;
         if (plan.withAssertions()) {
             List<Assertion> assertions = new ArrayList<>(List.of(
                     global().failedRequests().percent().lte(config.getDouble(Setting.MAX_ERROR_PERCENT)),
@@ -106,11 +124,20 @@ public abstract class BasePolicySimulation extends Simulation {
             if (p95TargetMs > 0) {
                 assertions.add(global().responseTime().percentile(P95).lt(p95TargetMs));
             }
+            for (Map.Entry<RequestName, Setting> target : plan.requestTargets().entrySet()) {
+                int targetMs = config.getInt(target.getValue());
+                if (targetMs > 0) {
+                    assertions.add(details(target.getKey().reportName()).responseTime().percentile(P95).lt(targetMs));
+                    requestTargetCount++;
+                }
+            }
             setUp.assertions(assertions);
         }
+        String targets = !plan.withAssertions() ? ""
+                : (p95TargetMs > 0 ? ", p95 target " + p95TargetMs + " ms" : "")
+                + (requestTargetCount > 0 ? ", " + requestTargetCount + " per-request p95 targets" : "");
         LOG.info("{}: throttle {} req/s, planned length {}, seed {}, assertions {}{}", getClass().getSimpleName(),
-                rpsCap, plan.plannedLength(), needsSeed ? "yes" : "no", plan.withAssertions() ? "on" : "off",
-                plan.withAssertions() && p95TargetMs > 0 ? ", p95 target " + p95TargetMs + " ms" : "");
+                rpsCap, plan.plannedLength(), needsSeed ? "yes" : "no", plan.withAssertions() ? "on" : "off", targets);
     }
 
     /** The simulation's plan. Called once, from the constructor. */

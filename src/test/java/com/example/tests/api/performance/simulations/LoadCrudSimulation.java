@@ -7,6 +7,8 @@ import com.example.tests.api.performance.scenarios.TrafficShapes;
 import io.gatling.javaapi.core.PopulationBuilder;
 
 import java.time.Duration;
+import com.example.tests.api.performance.requests.RequestName;
+import java.util.Map;
 
 import static io.gatling.javaapi.core.CoreDsl.scenario;
 
@@ -42,6 +44,10 @@ public class LoadCrudSimulation extends BasePolicySimulation {
                                         .injectOpen(delete.steps()))));
 
         Duration length = create.length().plus(get.length()).plus(update.length()).plus(delete.length());
-        return new Plan(phases, false, length, true, WindowReport.none(), Setting.P95_TARGET_LOAD_CRUD_MS);
+        return new Plan(phases, false, length, true, WindowReport.none(), Setting.P95_TARGET_LOAD_CRUD_MS,
+                Map.of(RequestName.CREATE_POLICY, Setting.P95_TARGET_LOAD_CRUD_CREATE_MS,
+                        RequestName.GET_POLICY, Setting.P95_TARGET_LOAD_CRUD_GET_MS,
+                        RequestName.UPDATE_POLICY, Setting.P95_TARGET_LOAD_CRUD_UPDATE_MS,
+                        RequestName.DELETE_POLICY, Setting.P95_TARGET_LOAD_CRUD_DELETE_MS));
     }
 }
